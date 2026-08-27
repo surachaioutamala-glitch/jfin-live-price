@@ -1,0 +1,442 @@
+<!DOCTYPE html><html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">  <title>JFIN Live Price</title>  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .symbol {
+      margin-top: 8px;
+      font-size: 16px;
+      color: #94a3b8;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 24px;
+      padding: 30px 20px;
+      text-align: center;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .label {
+      color: #94a3b8;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+
+    .price {
+      font-size: clamp(48px, 16vw, 80px);
+      font-weight: bold;
+      letter-spacing: -2px;
+      word-break: break-all;
+    }
+
+    .baht {
+      font-size: 20px;
+      color: #94a3b8;
+      margin-top: 10px;
+    }
+
+    .change {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .up {
+      color: #22c55e;
+    }
+
+    .down {
+      color: #ef4444;
+    }
+
+    .same {
+      color: #94a3b8;
+    }
+
+    .info-box {
+      margin-top: 25px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .info {
+      background: #334155;
+      padding: 15px 10px;
+      border-radius: 16px;
+    }
+
+    .info-title {
+      color: #94a3b8;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .info-value {
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .status {
+      margin-top: 20px;
+      text-align: center;
+      padding: 13px;
+      border-radius: 14px;
+      background: rgba(34, 197, 94, 0.12);
+      color: #4ade80;
+      font-size: 14px;
+    }
+
+    .status.error {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+    }
+
+    .refresh {
+      width: 100%;
+      margin-top: 20px;
+      border: none;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+
+    .refresh:active {
+      transform: scale(0.98);
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 25px;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    @media (max-width: 380px) {
+      .app {
+        padding: 15px;
+      }
+
+      .card {
+        padding: 25px 15px;
+      }
+
+      .price {
+        font-size: 55px;
+      }
+    }
+
+  </style></head><body>  <main class="app"><header class="header">
+  <h1>📊 JFIN Live Price</h1>
+  <div class="symbol">JFIN / THB</div>
+</header>
+
+<section class="card">
+
+  <div class="label">ราคาปัจจุบัน</div>
+
+  <div class="price" id="price">
+    --
+  </div>
+
+  <div class="baht">บาท</div>
+
+  <div class="change same" id="change">
+    ⏳ กำลังโหลดราคา...
+  </div>
+
+  <div class="info-box">
+
+    <div class="info">
+      <div class="info-title">📌 ราคาก่อนหน้า</div>
+      <div class="info-value" id="previousPrice">
+        --
+      </div>
+    </div>
+
+    <div class="info">
+      <div class="info-title">🔄 อัปเดตล่าสุด</div>
+      <div class="info-value" id="updateTime">
+        --
+      </div>
+    </div>
+
+  </div>
+
+  <div class="status" id="status">
+    🟡 กำลังเชื่อมต่อ...
+  </div>
+
+  <button class="refresh" onclick="getPrice()">
+    🔄 รีเฟรชราคา
+  </button>
+
+</section>
+
+<div class="footer">
+  เวลาไทย 🇹🇭 • อัปเดตอัตโนมัติทุก 15 วินาที
+</div>
+
+  </main>  <script>
+
+    const API_URL = "https://api.bitkub.com/api/market/ticker";
+    const SYMBOL = "THB_JFIN";
+
+    let previousPrice = null;
+
+
+    function getThailandTime() {
+
+      return new Intl.DateTimeFormat(
+        "th-TH",
+        {
+          timeZone: "Asia/Bangkok",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }
+      ).format(new Date());
+
+    }
+
+
+    function formatPrice(price) {
+
+      return Number(price).toLocaleString(
+        "th-TH",
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4
+        }
+      );
+
+    }
+
+
+    async function getPrice() {
+
+      const status = document.getElementById("status");
+
+      status.innerText = "🟡 กำลังดึงราคา...";
+
+
+      try {
+
+        const response = await fetch(
+          API_URL,
+          {
+            cache: "no-store"
+          }
+        );
+
+
+        if (!response.ok) {
+          throw new Error(
+            "HTTP Error " + response.status
+          );
+        }
+
+
+        const data = await response.json();
+
+
+        if (!data[SYMBOL]) {
+          throw new Error(
+            "ไม่พบข้อมูล JFIN"
+          );
+        }
+
+
+        const currentPrice = Number(
+          data[SYMBOL].last
+        );
+
+
+        document.getElementById(
+          "price"
+        ).innerText = formatPrice(
+          currentPrice
+        );
+
+
+        document.getElementById(
+          "updateTime"
+        ).innerText = getThailandTime();
+
+
+        const changeElement =
+          document.getElementById(
+            "change"
+          );
+
+
+        if (
+          previousPrice !== null
+        ) {
+
+          const difference =
+            currentPrice -
+            previousPrice;
+
+
+          const percent =
+            (
+              difference /
+              previousPrice
+            ) * 100;
+
+
+          document.getElementById(
+            "previousPrice"
+          ).innerText =
+            formatPrice(
+              previousPrice
+            ) +
+            " บาท";
+
+
+          if (
+            difference > 0
+          ) {
+
+            changeElement.innerText =
+              "🔼 ราคาเพิ่มขึ้น +" +
+              formatPrice(
+                difference
+              ) +
+              " บาท (+" +
+              percent.toFixed(
+                2
+              ) +
+              "%)";
+
+
+            changeElement.className =
+              "change up";
+
+          }
+
+          else if (
+            difference < 0
+          ) {
+
+            changeElement.innerText =
+              "🔽 ราคาลดลง " +
+              formatPrice(
+                difference
+              ) +
+              " บาท (" +
+              percent.toFixed(
+                2
+              ) +
+              "%)";
+
+
+            changeElement.className =
+              "change down";
+
+          }
+
+          else {
+
+            changeElement.innerText =
+              "➖ ราคาไม่เปลี่ยนแปลง";
+
+
+            changeElement.className =
+              "change same";
+
+          }
+
+        }
+
+
+        previousPrice =
+          currentPrice;
+
+
+        status.innerText =
+          "🟢 เชื่อมต่อสำเร็จ";
+
+
+        status.className =
+          "status";
+
+
+      }
+
+
+      catch (
+        error
+      ) {
+
+        console.error(
+          error
+        );
+
+
+        status.innerText =
+          "🔴 ไม่สามารถดึงราคาได้";
+
+
+        status.className =
+          "status error";
+
+      }
+
+    }
+
+
+    // โหลดครั้งแรก
+    getPrice();
+
+
+    // อัปเดตทุก 15 วินาที
+    setInterval(
+      getPrice,
+      15000
+    );
+
+  </script></body>
+</html>
